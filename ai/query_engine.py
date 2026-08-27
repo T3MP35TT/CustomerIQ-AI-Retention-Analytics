@@ -37,6 +37,32 @@ def get_top_predicted_churners(df, n=3):
         ]
     ]
 
+def get_top_high_risk_customers(df, n=10):
+    """
+    Return high-risk customers ranked by
+    expected revenue at risk.
+    """
+
+    result = df[
+        (df["churn_risk"] == "High Risk") &
+        (df["predicted_churn"] == 1)
+    ].copy()
+
+    result = result.sort_values(
+        "expected_revenue_at_risk",
+        ascending=False
+    ).head(n)
+
+    return result[
+        [
+            "customer_id",
+            "churn_probability_percentage",
+            "customer_value",
+            "expected_revenue_at_risk",
+            "retention_priority",
+            "retention_action"
+        ]
+    ]
 
 def get_high_value_churners(df, n=5):
     """
@@ -218,6 +244,7 @@ Predicted Churn Rate: {row['predicted_churn_rate']:.2f}%
 
 if __name__ == "__main__":
 
+
     from customeriq_ai import load_customer_data
 
     df = load_customer_data()
@@ -230,6 +257,12 @@ if __name__ == "__main__":
     print(
         get_top_predicted_churners(df, 3)
         .to_string(index=False)
+    )
+
+    print("\nTOP HIGH-RISK CUSTOMERS")
+    print(
+    get_top_high_risk_customers(df, 10)
+    .to_string(index=False)
     )
 
     print("\nHIGH-VALUE CHURNERS")

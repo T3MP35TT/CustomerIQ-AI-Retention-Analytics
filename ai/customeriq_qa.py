@@ -6,6 +6,7 @@ from prompts import SYSTEM_PROMPT
 
 from query_engine import (
     get_top_predicted_churners,
+    get_top_high_risk_customers,
     get_high_value_churners,
     get_high_probability_customers,
     get_rfm_churn_analysis,
@@ -92,6 +93,13 @@ def detect_question_type(question):
     if "c0" in q and any(char.isdigit() for char in q):
         return "customer_lookup"
 
+        # Top high-risk customers
+    if (
+        ("high risk" in q or "highest risk" in q)
+        and ("customer" in q or "customers" in q)
+    ):
+        return "high_risk_customers"
+    
     # Top retention targets
     if (
         ("contact" in q or "target" in q or "priorit" in q)
@@ -154,7 +162,24 @@ def get_relevant_context(df, question):
 
     question_type = detect_question_type(question)
 
+        # --------------------------------------------------------
+    # TOP HIGH-RISK CUSTOMERS
+    # --------------------------------------------------------
 
+    if question_type == "high_risk_customers":
+
+        result = get_top_high_risk_customers(df, 10)
+
+        context = f"""
+QUESTION TYPE: Top high-risk customers
+
+CUSTOMERIQ FACTS:
+
+{format_customer_records(result)}
+"""
+
+        return context
+    
     # --------------------------------------------------------
     # TOP CHURNERS
     # --------------------------------------------------------
@@ -382,6 +407,7 @@ if __name__ == "__main__":
 
     questions = [
         "Which customers should I contact first?",
+        "Give me top 10 high risk customers",
         "Which RFM segment has the highest predicted churn?",
         "How much revenue is at risk?",
         "Tell me about C00398",
