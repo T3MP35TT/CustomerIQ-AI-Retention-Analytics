@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: customeriq-ai
+    runtime: python
+    plan: free
+    rootDir: ai
+
+    buildCommand: pip install -r requirements.txt
+
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+
+    healthCheckPath: /health
+
+    autoDeployTrigger: commit
+
+    envVars:
+      - key: OLLAMA_BASE_URL
+        value: https://ollama.com
+
+      - key: OLLAMA_MODEL
+        value: gpt-oss:20b
+
+      - key: OLLAMA_API_KEY
+        sync: false
