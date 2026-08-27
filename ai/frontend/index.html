@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>CustomerIQ AI Assistant</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: "Segoe UI", Arial, sans-serif;
+            background: #f5f7fb;
+            color: #1f2937;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 40px 24px;
+        }
+
+        .header {
+            margin-bottom: 28px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .logo {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            background: #2563eb;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #111827;
+        }
+
+        .subtitle {
+            color: #6b7280;
+            font-size: 15px;
+            margin-left: 54px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 14px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+        }
+
+        .question-card {
+            padding: 24px;
+            margin-bottom: 22px;
+        }
+
+        .label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #374151;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 12px;
+        }
+
+        #question {
+            flex: 1;
+            min-height: 48px;
+            border: 1px solid #d1d5db;
+            border-radius: 9px;
+            padding: 12px 14px;
+            font-family: inherit;
+            font-size: 14px;
+            resize: vertical;
+            outline: none;
+        }
+
+        #question:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        button {
+            border: none;
+            border-radius: 9px;
+            padding: 0 22px;
+            background: #2563eb;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            min-width: 145px;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        button:disabled {
+            background: #93c5fd;
+            cursor: not-allowed;
+        }
+
+        .examples {
+            margin-top: 14px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .example {
+            border: 1px solid #dbe3f0;
+            background: #f8fafc;
+            color: #475569;
+            padding: 7px 11px;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .example:hover {
+            background: #eff6ff;
+            border-color: #93c5fd;
+            color: #1d4ed8;
+        }
+
+        .response-card {
+            padding: 26px;
+            min-height: 220px;
+        }
+
+        .response-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        .ai-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            background: #eff6ff;
+            color: #2563eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+        }
+
+        .response-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #111827;
+        }
+
+        #response {
+            color: #374151;
+            font-size: 15px;
+            line-height: 1.7;
+            white-space: pre-wrap;
+        }
+
+        .placeholder {
+            color: #9ca3af;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            color: #6b7280;
+        }
+
+        .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #2563eb;
+            animation: pulse 1.2s infinite;
+        }
+
+        .dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 0.3;
+            }
+
+            50% {
+                opacity: 1;
+            }
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 22px;
+            color: #9ca3af;
+            font-size: 12px;
+        }
+
+        @media (max-width: 700px) {
+            .container {
+                padding: 24px 16px;
+            }
+
+            .input-row {
+                flex-direction: column;
+            }
+
+            button {
+                height: 46px;
+            }
+
+            .subtitle {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="header">
+
+        <div class="brand">
+            <div class="logo">IQ</div>
+            <h1>CustomerIQ AI Assistant</h1>
+        </div>
+
+        <div class="subtitle">
+            Ask questions about customer churn, risk, value and retention.
+        </div>
+
+    </div>
+
+
+    <div class="card question-card">
+
+        <label class="label" for="question">
+            Ask CustomerIQ
+        </label>
+
+        <div class="input-row">
+
+            <textarea
+                id="question"
+                rows="2"
+                placeholder="e.g. Which customers should I contact first?"
+            ></textarea>
+
+            <button id="askButton" onclick="askCustomerIQ()">
+                Ask CustomerIQ
+            </button>
+
+        </div>
+
+
+        <div class="examples">
+
+            <div
+                class="example"
+                onclick="setQuestion('Which customers should I contact first?')"
+            >
+                Which customers should I contact first?
+            </div>
+
+            <div
+                class="example"
+                onclick="setQuestion('Which RFM segment has the highest predicted churn?')"
+            >
+                Highest-risk RFM segment?
+            </div>
+
+            <div
+                class="example"
+                onclick="setQuestion('How much revenue is at risk?')"
+            >
+                How much revenue is at risk?
+            </div>
+
+            <div
+                class="example"
+                onclick="setQuestion('What retention actions should we prioritize?')"
+            >
+                What retention actions should we prioritize?
+            </div>
+
+            <div
+                class="example"
+                onclick="setQuestion('Give me a summary of customer churn risk.')"
+            >
+                Summarize churn risk
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="card response-card">
+
+        <div class="response-header">
+
+            <div class="ai-icon">
+                ✦
+            </div>
+
+            <div class="response-title">
+                CustomerIQ AI
+            </div>
+
+        </div>
+
+
+        <div id="response">
+
+            <span class="placeholder">
+                Ask a question to get a CustomerIQ-powered answer.
+            </span>
+
+        </div>
+
+    </div>
+
+
+    <div class="footer">
+        CustomerIQ · Predictive Customer Intelligence & Retention Analytics
+    </div>
+
+</div>
+
+
+<script>
+
+    const API_URL = "/ask";
+
+
+    function setQuestion(question) {
+
+        document.getElementById("question").value = question;
+
+        document.getElementById("question").focus();
+
+    }
+
+
+    async function askCustomerIQ() {
+
+        const questionInput =
+            document.getElementById("question");
+
+        const button =
+            document.getElementById("askButton");
+
+        const responseDiv =
+            document.getElementById("response");
+
+
+        const question =
+            questionInput.value.trim();
+
+
+        if (!question) {
+
+            responseDiv.innerHTML =
+                '<span class="placeholder">Please enter a question.</span>';
+
+            return;
+        }
+
+
+        button.disabled = true;
+
+        button.textContent = "Thinking...";
+
+
+        responseDiv.innerHTML = `
+            <div class="loading">
+                <span>CustomerIQ is analyzing the data</span>
+                <span class="dot"></span>
+                <span class="dot"></span>
+                <span class="dot"></span>
+            </div>
+        `;
+
+
+        try {
+
+            const response = await fetch(
+                API_URL,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        question: question
+                    })
+                }
+            );
+
+
+            if (!response.ok) {
+
+                const errorData =
+                    await response.json();
+
+                throw new Error(
+                    errorData.detail ||
+                    "The CustomerIQ API returned an error."
+                );
+            }
+
+
+            const data =
+                await response.json();
+
+
+            responseDiv.textContent =
+                data.answer;
+
+
+        } catch (error) {
+
+            responseDiv.innerHTML = `
+                <span style="color:#dc2626;">
+                    Unable to connect to CustomerIQ AI.
+                    <br><br>
+                    Make sure the FastAPI server is running.
+                    <br>
+                    Error: ${error.message}
+                </span>
+            `;
+
+        } finally {
+
+            button.disabled = false;
+
+            button.textContent = "Ask CustomerIQ";
+
+        }
+
+    }
+
+
+    document
+        .getElementById("question")
+        .addEventListener(
+            "keydown",
+            function(event) {
+
+                if (
+                    event.key === "Enter" &&
+                    !event.shiftKey
+                ) {
+
+                    event.preventDefault();
+
+                    askCustomerIQ();
+
+                }
+
+            }
+        );
+
+</script>
+
+</body>
+</html>
