@@ -1,30 +1,72 @@
+"""
+CustomerIQ — End-to-End Natural Language Q&A
+
+Flow
+----
+User question
+    ↓
+query_planner.py
+    ↓
+Ollama Cloud generates safe SQLite SQL
+    ↓
+SQLite database executes SQL
+    ↓
+Verified result
+    ↓
+Ollama Cloud generates business-friendly answer
+
+Important
+---------
+- SQL generation is handled by query_planner.py
+- SQL execution is handled directly against customeriq.db
+- Future churn outcomes are never used as predictive features
+- Ollama Cloud is accessed through HTTPS
+- No local Ollama server is required
+"""
+
+from __future__ import annotations
+
+import json
 import os
+from pathlib import Path
+from typing import Any
+
 import requests
+from dotenv import load_dotenv
 
-from customeriq_ai import load_customer_data
-from prompts import SYSTEM_PROMPT
-
-from query_engine import (
-    get_top_predicted_churners,
-    get_top_high_risk_customers,
-    get_high_value_churners,
-    get_high_probability_customers,
-    get_rfm_churn_analysis,
-    get_customer,
-    get_business_summary,
-    format_customer_records,
-    format_rfm_analysis
+from query_planner import (
+    plan_query,
+    DB_PATH,
+    OLLAMA_MODEL,
+    OLLAMA_BASE_URL,
+    OLLAMA_API_KEY,
 )
 
 
 # ============================================================
-# CUSTOMERIQ — AI QUESTION ANSWERING
+# ENVIRONMENT
 # ============================================================
 
-OLLAMA_BASE_URL = os.getenv(
-    "OLLAMA_BASE_URL",
-    "http://localhost:11434"
+BASE_DIR = Path(
+    __file__
+).resolve().parent
+
+ENV_FILE = (
+    BASE_DIR.parent
+    / ".env"
 )
+
+load_dotenv(
+    dotenv_path=ENV_FILE
+)
+
+
+# ============================================================
+# OLLAMA CONFIGURATION
+# ============================================================
+
+# Reload directly from environment so this module remains
+# compatible with the Render deployment environment.
 
 OLLAMA_API_KEY = os.getenv(
     "OLLAMA_API_KEY"
@@ -32,394 +74,778 @@ OLLAMA_API_KEY = os.getenv(
 
 OLLAMA_MODEL = os.getenv(
     "OLLAMA_MODEL",
-    "qwen3:4b"
+    OLLAMA_MODEL
 )
 
-OLLAMA_URL = f"{OLLAMA_BASE_URL}/api/generate"
+OLLAMA_BASE_URL = os.getenv(
+    "OLLAMA_BASE_URL",
+    OLLAMA_BASE_URL
+).rstrip("/")
 
 
-def ask_ollama(prompt):
-    """
-    Send relevant CustomerIQ facts to Ollama.
+# ============================================================
+# VALIDATE CONFIGURATION
+# ============================================================
 
-    Works with:
-    - Local Ollama during development
-    - Ollama Cloud when deployed
-    """
+def validate_configuration() -> None:
 
-    payload = {
-        "model": OLLAMA_MODEL,
-        "system": SYSTEM_PROMPT,
-        "prompt": prompt,
-        "stream": False,
-        "options": {
-            "temperature": 0.2
-        }
-    }
+    if not OLLAMA_API_KEY:
 
-    headers = {
-        "Content-Type": "application/json"
-    }
-
-    if OLLAMA_API_KEY:
-        headers["Authorization"] = (
-            f"Bearer {OLLAMA_API_KEY}"
+        raise RuntimeError(
+            "OLLAMA_API_KEY is not configured.\n"
+            f"Expected environment file:\n{ENV_FILE}"
         )
 
-    response = requests.post(
-        OLLAMA_URL,
-        json=payload,
-        headers=headers,
-        timeout=120
-    )
+    if not DB_PATH.exists():
 
-    response.raise_for_status()
-
-    return response.json()["response"].strip()
-
-
-# ============================================================
-# QUESTION ROUTING
-# ============================================================
-
-def detect_question_type(question):
-    """
-    Determine which CustomerIQ analysis should be used.
-    """
-
-    q = question.lower()
-
-    # Customer-specific lookup
-    if "c0" in q and any(char.isdigit() for char in q):
-        return "customer_lookup"
-
-        # Top high-risk customers
-    if (
-        ("high risk" in q or "highest risk" in q)
-        and ("customer" in q or "customers" in q)
-    ):
-        return "high_risk_customers"
-    
-    # Top retention targets
-    if (
-        ("contact" in q or "target" in q or "priorit" in q)
-        and ("customer" in q or "customers" in q)
-    ):
-        return "top_churners"
-
-    # High-value customers
-    if (
-        "high-value" in q
-        or "high value" in q
-        or "valuable customers" in q
-    ):
-        return "high_value_churners"
-
-    # Churn probability threshold
-    if (
-        "churn probability" in q
-        or "probability above" in q
-        or "probability over" in q
-        or "probability greater" in q
-    ):
-        return "high_probability"
-
-    # RFM analysis
-    if (
-        "rfm" in q
-        or "segment" in q
-    ):
-        return "rfm_analysis"
-
-    # Financial summary
-    if (
-        "revenue at risk" in q
-        or "profit at risk" in q
-        or "financial risk" in q
-        or "financial exposure" in q
-    ):
-        return "business_summary"
-
-    # General churn summary
-    if (
-        "churn" in q
-        or "risk" in q
-        or "retention" in q
-    ):
-        return "business_summary"
-
-    return "business_summary"
-
-
-# ============================================================
-# BUILD DATA CONTEXT
-# ============================================================
-
-def get_relevant_context(df, question):
-    """
-    Run the appropriate Python analysis based on the question.
-    """
-
-    question_type = detect_question_type(question)
-
-        # --------------------------------------------------------
-    # TOP HIGH-RISK CUSTOMERS
-    # --------------------------------------------------------
-
-    if question_type == "high_risk_customers":
-
-        result = get_top_high_risk_customers(df, 10)
-
-        context = f"""
-QUESTION TYPE: Top high-risk customers
-
-CUSTOMERIQ FACTS:
-
-{format_customer_records(result)}
-"""
-
-        return context
-    
-    # --------------------------------------------------------
-    # TOP CHURNERS
-    # --------------------------------------------------------
-
-    if question_type == "top_churners":
-
-        result = get_top_predicted_churners(df, 5)
-
-        context = f"""
-QUESTION TYPE: Top predicted churn customers
-
-CUSTOMERIQ FACTS:
-
-{format_customer_records(result)}
-"""
-
-        return context
-
-
-    # --------------------------------------------------------
-    # HIGH-VALUE CHURNERS
-    # --------------------------------------------------------
-
-    if question_type == "high_value_churners":
-
-        result = get_high_value_churners(df, 5)
-
-        context = f"""
-QUESTION TYPE: High-value customers predicted to churn
-
-CUSTOMERIQ FACTS:
-
-{format_customer_records(result)}
-"""
-
-        return context
-
-
-    # --------------------------------------------------------
-    # HIGH CHURN PROBABILITY
-    # --------------------------------------------------------
-
-    if question_type == "high_probability":
-
-        result = get_high_probability_customers(
-            df,
-            threshold=80,
-            n=10
+        raise FileNotFoundError(
+            "CustomerIQ database was not found:\n"
+            f"{DB_PATH}"
         )
 
-        context = f"""
-QUESTION TYPE: Customers with high churn probability
 
-CUSTOMERIQ FACTS:
+# ============================================================
+# RESULT SERIALIZATION
+# ============================================================
 
-{format_customer_records(result)}
-"""
+def serialize_result(
+    result: Any
+) -> Any:
 
-        return context
+    # Pandas DataFrame
+    if hasattr(
+        result,
+        "to_dict"
+    ):
 
+        try:
 
-    # --------------------------------------------------------
-    # RFM ANALYSIS
-    # --------------------------------------------------------
-
-    if question_type == "rfm_analysis":
-
-        result = get_rfm_churn_analysis(df)
-
-        context = f"""
-QUESTION TYPE: RFM churn analysis
-
-CUSTOMERIQ FACTS:
-
-{format_rfm_analysis(result)}
-"""
-
-        return context
-
-
-    # --------------------------------------------------------
-    # CUSTOMER LOOKUP
-    # --------------------------------------------------------
-
-    if question_type == "customer_lookup":
-
-        import re
-
-        match = re.search(
-            r"(C\d+)",
-            question.upper()
-        )
-
-        if match:
-
-            customer_id = match.group(1)
-
-            customer = get_customer(
-                df,
-                customer_id
+            return result.to_dict(
+                orient="records"
             )
 
-            if customer is not None:
+        except TypeError:
 
-                customer_data = customer.to_dict()
-
-                relevant_fields = {
-                    key: value
-                    for key, value in customer_data.items()
-                    if key in [
-                        "customer_id",
-                        "customer_segment",
-                        "acquisition_channel",
-                        "location",
-                        "total_orders",
-                        "total_revenue",
-                        "gross_profit",
-                        "recency_days",
-                        "churn_probability_percentage",
-                        "predicted_churn",
-                        "rfm_segment",
-                        "churn_risk",
-                        "customer_value",
-                        "expected_revenue_at_risk",
-                        "expected_profit_at_risk",
-                        "retention_score",
-                        "retention_priority",
-                        "retention_action"
-                    ]
-                }
-
-                context = f"""
-QUESTION TYPE: Individual customer lookup
-
-CUSTOMERIQ FACTS:
-
-{relevant_fields}
-"""
-
-                return context
-
-        return "No matching customer was found."
+            return result.to_dict()
 
 
-    # --------------------------------------------------------
-    # BUSINESS SUMMARY
-    # --------------------------------------------------------
+    # NumPy scalar
+    if hasattr(
+        result,
+        "item"
+    ):
 
-    summary = get_business_summary(df)
+        try:
 
-    context = f"""
-QUESTION TYPE: CustomerIQ business summary
+            return result.item()
 
-CUSTOMERIQ FACTS:
+        except Exception:
 
-Total Customers:
-{summary['total_customers']:,}
+            pass
 
-Predicted Churners:
-{summary['predicted_churners']:,}
 
-Predicted Churn Rate:
-{summary['predicted_churn_rate']:.2f}%
-
-Expected Revenue at Risk:
-₹{summary['revenue_at_risk']:,.2f}
-
-Expected Profit at Risk:
-₹{summary['profit_at_risk']:,.2f}
-"""
-
-    return context
+    return result
 
 
 # ============================================================
-# ANSWER QUESTION
+# RESULT EMPTY CHECK
 # ============================================================
 
-def answer_question(question):
-    """
-    Answer a CustomerIQ question using Python-generated facts.
-    """
+def result_is_empty(
+    result: Any
+) -> bool:
 
-    df = load_customer_data()
+    if result is None:
 
-    context = get_relevant_context(
-        df,
-        question
+        return True
+
+
+    if hasattr(
+        result,
+        "empty"
+    ):
+
+        return bool(
+            result.empty
+        )
+
+
+    if isinstance(
+        result,
+        (list, tuple, dict)
+    ):
+
+        return len(result) == 0
+
+
+    return False
+
+
+# ============================================================
+# FORMAT VERIFIED RESULT
+# ============================================================
+
+def format_result_for_llm(
+    result: Any
+) -> str:
+
+    serialized = serialize_result(
+        result
     )
 
+
+    return json.dumps(
+        serialized,
+        indent=2,
+        ensure_ascii=False,
+        default=str
+    )
+
+
+# ============================================================
+# METRIC DISPLAY NAME
+# ============================================================
+
+def metric_display_name(
+    metric: str | None
+) -> str:
+
+    names = {
+
+        "expected_revenue_at_risk":
+            "expected revenue at risk",
+
+        "expected_profit_at_risk":
+            "expected profit at risk",
+
+        "customer_value":
+            "customer value",
+
+        "churn_probability_percentage":
+            "churn probability",
+
+        "total_revenue":
+            "total revenue",
+
+        "net_revenue":
+            "net revenue",
+
+        "gross_profit":
+            "gross profit",
+
+        "total_orders":
+            "orders",
+
+        "total_units":
+            "units",
+
+        "total_interactions":
+            "interactions",
+
+        "views":
+            "views",
+
+        "clicks":
+            "clicks",
+
+        "add_to_carts":
+            "add-to-carts",
+
+        "email_opens":
+            "email opens",
+
+        "retention_score":
+            "retention score",
+
+        "predicted_churn":
+            "predicted churn",
+
+    }
+
+
+    return names.get(
+        metric,
+        metric or "value"
+    )
+
+
+# ============================================================
+# ANSWER SYSTEM PROMPT
+# ============================================================
+
+ANSWER_SYSTEM_PROMPT = """
+You are the CustomerIQ business intelligence assistant.
+
+Your job is to explain verified analytical results to
+business users in clear, concise language.
+
+The SQL query has already been generated and executed.
+
+The provided result is the SOURCE OF TRUTH.
+
+You MUST use only the verified result.
+
+Never invent data.
+
+Never invent customers.
+
+Never invent metrics.
+
+Never change numerical values.
+
+Never calculate a different result when the verified
+result already contains the requested answer.
+
+Never claim that data exists when it does not appear
+in the verified result.
+
+If the result is a ranking, preserve its order.
+
+If the result contains customer records, include the
+customer ID and the relevant requested metric.
+
+Use ₹ for Indian currency.
+
+Format percentages to two decimal places.
+
+Round currency to the nearest rupee unless precision
+is explicitly useful.
+
+For multiple records, use a numbered list when useful.
+
+For comparisons, explicitly mention the compared groups.
+
+Keep normal answers concise.
+
+Normally answer in 1–4 sentences.
+
+For requested lists, provide the list clearly.
+
+Do not mention:
+
+- query planner
+- query executor
+- Python
+- SQLite
+- Ollama
+- internal prompts
+- internal reasoning
+
+Do not expose JSON unless the user explicitly asks for it.
+
+Never provide chain-of-thought.
+
+Answer the user's actual question directly.
+"""
+
+
+# ============================================================
+# CALL OLLAMA CLOUD
+# ============================================================
+
+def call_ollama_answer(
+    prompt: str
+) -> str:
+
+    validate_configuration()
+
+
+    url = (
+        f"{OLLAMA_BASE_URL}/api/chat"
+    )
+
+
+    headers = {
+
+        "Authorization":
+            f"Bearer {OLLAMA_API_KEY}",
+
+        "Content-Type":
+            "application/json",
+    }
+
+
+    payload = {
+
+        "model":
+            OLLAMA_MODEL,
+
+        "messages": [
+
+            {
+                "role":
+                    "system",
+
+                "content":
+                    ANSWER_SYSTEM_PROMPT,
+            },
+
+            {
+                "role":
+                    "user",
+
+                "content":
+                    prompt,
+            },
+        ],
+
+        "stream":
+            False,
+    }
+
+
+    try:
+
+        response = requests.post(
+
+            url,
+
+            headers=headers,
+
+            json=payload,
+
+            timeout=120,
+        )
+
+
+    except requests.RequestException as exc:
+
+        raise RuntimeError(
+            "Could not connect to Ollama Cloud "
+            "while generating the answer:\n"
+            f"{exc}"
+        ) from exc
+
+
+    if response.status_code != 200:
+
+        raise RuntimeError(
+            "Ollama Cloud answer request failed:\n"
+            f"HTTP {response.status_code}\n"
+            f"{response.text}"
+        )
+
+
+    try:
+
+        data = response.json()
+
+    except ValueError as exc:
+
+        raise RuntimeError(
+            "Ollama Cloud returned an invalid "
+            "HTTP response:\n"
+            f"{response.text}"
+        ) from exc
+
+
+    try:
+
+        answer = (
+            data["message"]["content"]
+        )
+
+    except (
+        KeyError,
+        TypeError
+    ) as exc:
+
+        raise RuntimeError(
+            "Unexpected Ollama Cloud response:\n"
+            f"{data}"
+        ) from exc
+
+
+    answer = answer.strip()
+
+
+    if not answer:
+
+        raise RuntimeError(
+            "Ollama Cloud returned an empty answer."
+        )
+
+
+    return answer
+
+
+# ============================================================
+# GENERATE BUSINESS ANSWER
+# ============================================================
+
+def generate_answer(
+    question: str,
+    plan: dict,
+    result: Any
+) -> str:
+
+    if result_is_empty(
+        result
+    ):
+
+        return (
+            "No matching CustomerIQ records "
+            "were found."
+        )
+
+
+    result_text = (
+        format_result_for_llm(
+            result
+        )
+    )
+
+
+    plan_text = json.dumps(
+        plan,
+        indent=2,
+        ensure_ascii=False
+    )
+
+
+    metric_name = (
+        metric_display_name(
+            plan.get("metric")
+        )
+    )
+
+
     prompt = f"""
-CUSTOMERIQ DATA:
+CUSTOMERIQ VERIFIED ANALYTICS RESULT
 
-{context}
+The following result was calculated directly from
+the CustomerIQ database.
 
-BUSINESS QUESTION:
+The verified result is the source of truth.
+
+============================================================
+USER QUESTION
+============================================================
 
 {question}
 
-Answer the question using ONLY the CustomerIQ facts provided.
 
-Keep the answer concise.
+============================================================
+GENERATED SQL
+============================================================
 
-Prefer one or two sentences.
+{plan.get("sql", "")}
 
-Do not explain your reasoning.
 
-Do not invent information.
+============================================================
+VERIFIED RESULT
+============================================================
 
-If the data does not answer the question, say so clearly.
+{result_text}
+
+
+============================================================
+REQUESTED METRIC
+============================================================
+
+{metric_name}
+
+
+============================================================
+ANSWER REQUIREMENTS
+============================================================
+
+Answer the user's question directly.
+
+Use ONLY the verified result.
+
+Never invent information.
+
+Never modify numerical values.
+
+Never recalculate the ranking differently.
+
+Preserve the order of the verified result.
+
+If multiple customers are returned, clearly show:
+
+Customer ID — requested metric
+
+If the question asks for a ranking, clearly identify
+the highest/lowest result as appropriate.
+
+If the question asks for a comparison, explicitly
+mention each comparison group.
+
+If the result contains revenue, use ₹.
+
+If the result contains percentages, format them
+to two decimal places.
+
+Keep the answer concise and business-friendly.
 """
 
-    return ask_ollama(prompt)
+
+    return call_ollama_answer(
+        prompt
+    )
 
 
 # ============================================================
-# TEST
+# EXECUTE SQL
+# ============================================================
+
+def execute_sql(
+    sql: str
+) -> list[dict]:
+
+    import sqlite3
+
+
+    validate_configuration()
+
+
+    with sqlite3.connect(
+        str(DB_PATH)
+    ) as connection:
+
+        connection.row_factory = (
+            sqlite3.Row
+        )
+
+
+        cursor = connection.execute(
+            sql
+        )
+
+
+        rows = cursor.fetchall()
+
+
+        return [
+
+            dict(row)
+
+            for row in rows
+        ]
+
+
+# ============================================================
+# END-TO-END QUESTION ANSWER
+# ============================================================
+
+def answer_question(
+    question: str
+) -> str:
+
+    if not isinstance(
+        question,
+        str
+    ):
+
+        raise TypeError(
+            "Question must be a string."
+        )
+
+
+    question = question.strip()
+
+
+    if not question:
+
+        raise ValueError(
+            "Question cannot be empty."
+        )
+
+
+    # --------------------------------------------------------
+    # 1. Generate safe SQL
+    # --------------------------------------------------------
+
+    plan = plan_query(
+        question
+    )
+
+
+    # --------------------------------------------------------
+    # 2. Execute verified SQL against SQLite
+    # --------------------------------------------------------
+
+    result = execute_sql(
+        plan["sql"]
+    )
+
+
+    # --------------------------------------------------------
+    # 3. Generate business-friendly answer
+    # --------------------------------------------------------
+
+    return generate_answer(
+        question,
+        plan,
+        result
+    )
+
+
+# ============================================================
+# TEST QUESTIONS
+# ============================================================
+
+TEST_QUESTIONS = [
+
+    "Which customer segments generate the most revenue?",
+
+    "Which acquisition channel generates the most revenue?",
+
+    "Which location has the highest revenue?",
+
+    "Which customer segment has the most customers?",
+
+    "Give me the top 10 customers by revenue",
+
+    "Which customers have the highest expected revenue at risk?",
+
+    "How much revenue is at risk?",
+
+    "How many customers have churn probability above 80%?",
+
+    "What percentage of customers are predicted to churn?",
+
+    "Which RFM segment has the highest revenue at risk?",
+
+    "Which RFM segment has the highest churn risk?",
+
+    "Tell me about C00398",
+
+    "What is the churn probability of C00398?",
+
+    "How much revenue is C00398 putting at risk?",
+
+]
+
+
+# ============================================================
+# COMMAND-LINE TEST
 # ============================================================
 
 if __name__ == "__main__":
 
-    print("\n" + "=" * 60)
-    print("CUSTOMERIQ — AI QUERY ENGINE TEST")
-    print("=" * 60)
+    import sys
 
-    questions = [
-        "Which customers should I contact first?",
-        "Give me top 10 high risk customers",
-        "Which RFM segment has the highest predicted churn?",
-        "How much revenue is at risk?",
-        "Tell me about C00398",
-        "Which high-value customers are predicted to churn?"
-    ]
 
-    for question in questions:
+    print(
+        "\n" + "=" * 70
+    )
 
-        print(f"\nQuestion: {question}")
+    print(
+        "CUSTOMERIQ — END-TO-END NLP TEST"
+    )
 
-        answer = answer_question(question)
+    print(
+        "=" * 70
+    )
 
-        print(f"Answer: {answer}")
 
-    print("\n" + "=" * 60)
+    # --------------------------------------------------------
+    # Run one supplied question
+    # --------------------------------------------------------
+
+    if len(sys.argv) > 1:
+
+        question = " ".join(
+            sys.argv[1:]
+        )
+
+
+        print(
+            "\nQUESTION:"
+        )
+
+        print(
+            question
+        )
+
+
+        try:
+
+            answer = answer_question(
+                question
+            )
+
+
+            print(
+                "\nANSWER:"
+            )
+
+            print(
+                answer
+            )
+
+
+        except Exception as exc:
+
+            print(
+                "\nERROR:"
+            )
+
+            print(
+                f"{type(exc).__name__}: {exc}"
+            )
+
+            raise SystemExit(1)
+
+
+    # --------------------------------------------------------
+    # Otherwise run the test suite
+    # --------------------------------------------------------
+
+    else:
+
+        for question in TEST_QUESTIONS:
+
+            print(
+                "\n" + "-" * 70
+            )
+
+            print(
+                "QUESTION:"
+            )
+
+            print(
+                question
+            )
+
+
+            try:
+
+                answer = answer_question(
+                    question
+                )
+
+
+                print(
+                    "\nANSWER:"
+                )
+
+                print(
+                    answer
+                )
+
+
+            except Exception as exc:
+
+                print(
+                    "\nERROR:"
+                )
+
+                print(
+                    f"{type(exc).__name__}: {exc}"
+                )
+
+
+    print(
+        "\n" + "=" * 70
+    )
+
+    print(
+        "CUSTOMERIQ — END-TO-END TEST COMPLETE"
+    )
+
+    print(
+        "=" * 70
+    )
