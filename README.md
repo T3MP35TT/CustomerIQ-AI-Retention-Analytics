@@ -523,6 +523,9 @@ Users can ask questions about:
 ```text
 CustomerIQ/
 │
+├── Snapshots/
+    ├──
+    ├──
 ├── ai/
 │   ├── app.py
 │   ├── customeriq_qa.py
@@ -533,25 +536,32 @@ CustomerIQ/
 │   ├── analytics_engine.py
 │   ├── sync_customer_scores.py
 │   ├── verify_customer_value.py
-│   └── requirements.txt
+│   ├── requirements.txt
+│   └── frontend/
+│       └── CustomerIQ AI interface
+├── data/
+│   ├── raw/
+│   ├── clean/
+│   ├── churn_modeling_dataset.csv
+│   └── churn_scored_customers.csv
 │
 ├── database/
 │   └── customeriq.db
-│
-├── data/
-│   └── churn_scored_customers.csv
-│
+├── modelling/
+│   ├──
+│   ├──
+├── models/
+│   ├──
 ├── sql/
-│   └── SQL analysis scripts
-│
-├── frontend/
-│   └── CustomerIQ AI interface
-│
-├── inspect_database.py
-│
+│    └── SQL analysis scripts
 ├── .env.example
-│
-└── README.md
+├── .gitignore
+├── CustomerIQ Project.pbix
+├── README.md
+├── data_cleaning.py
+├── database_setup.py
+├── export_churn_dataset.py
+└── render.yaml
 ```
 
 ---
