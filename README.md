@@ -524,11 +524,11 @@ Users can ask questions about:
 CustomerIQ/
 │
 ├── Snapshots/
-    ├── CustomerIQ AI Assistant Snapshot.png
-    ├── CustomerIQ Dashboard Snapshot.png
+│   ├── CustomerIQ AI Assistant Snapshot.png
+│   ├── CustomerIQ Dashboard Snapshot.png
 ├── ai/
 │   ├── frontend/
-│   │   └── CustomerIQ AI interface
+│   │     └── CustomerIQ AI interface
 │   ├── analytics_engine.py
 │   ├── app.py
 │   ├── customeriq_ai.py
@@ -548,10 +548,10 @@ CustomerIQ/
 │   │     ├── products.csv
 │   │     ├── transactions.csv
 │   ├── clean/
-│   │      ├── customers_clean.csv
-│   │      ├── interactions_clean.csv
-│   │      ├── products_clean.csv
-│   │      ├── transactions_clean.csv
+│   │     ├── customers_clean.csv
+│   │     ├── interactions_clean.csv
+│   │     ├── products_clean.csv
+│   │     ├── transactions_clean.csv
 │   ├── churn_modeling_dataset.csv
 │   └── churn_scored_customers.csv
 │
@@ -810,3 +810,18 @@ The project is designed to demonstrate not only how to build analytical dashboar
 ## 📜 License
 
 This project is intended as a portfolio project demonstrating data analytics, machine learning, business intelligence, and AI application development.
+
+---
+
+## 👤 Author
+
+**Kartikey Singh**
+
+**Data Analyst | Power BI | Python | SQL | Excel**
+
+LinkedIn: *[Kartikey_Singh](https://www.linkedin.com/in/btwitskartiksinghdatanalyst/)*
+
+GitHub: *[Kartikey_Singh](https://github.com/T3MP35TT)*
+
+Portfolio : *[Kartikey_Singh](https://sites.google.com/view/kartikeysingh09/home)*
+
