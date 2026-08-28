@@ -5,6 +5,8 @@ CustomerIQ is an end-to-end customer intelligence and retention analytics soluti
 🔗 **Live AI Demo:** https://customeriq-ai.onrender.com/  
 🔗 **GitHub Repository:** https://github.com/T3MP35TT/CustomerIQ
 
+![CustomerIQ AI Assistant](./CustomerIQ%20%AI%20%Assistant%20%Snapshot.png)
+
 ---
 
 ## 📌 Project Overview
