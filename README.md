@@ -524,36 +524,49 @@ Users can ask questions about:
 CustomerIQ/
 │
 ├── Snapshots/
-    ├──
-    ├──
+    ├── CustomerIQ AI Assistant Snapshot.png
+    ├── CustomerIQ Dashboard Snapshot.png
 ├── ai/
+│   ├── frontend/
+│   │   └── CustomerIQ AI interface
+│   ├── analytics_engine.py
 │   ├── app.py
+│   ├── customeriq_ai.py
 │   ├── customeriq_qa.py
 │   ├── prompts.py
-│   ├── semantic_layer.py
-│   ├── query_planner.py
+│   ├── query_engine.py
 │   ├── query_executor.py
-│   ├── analytics_engine.py
-│   ├── sync_customer_scores.py
-│   ├── verify_customer_value.py
+│   ├── query_planner.py
 │   ├── requirements.txt
-│   └── frontend/
-│       └── CustomerIQ AI interface
+│   ├── semantic_layer.py
+│   ├── sync_customer_scores.py
+│   
 ├── data/
 │   ├── raw/
+│   │     ├── customers.csv
+│   │     ├── interactions.csv
+│   │     ├── products.csv
+│   │     ├── transactions.csv
 │   ├── clean/
+│   │      ├── customers_clean.csv
+│   │      ├── interactions_clean.csv
+│   │      ├── products_clean.csv
+│   │      ├── transactions_clean.csv
 │   ├── churn_modeling_dataset.csv
 │   └── churn_scored_customers.csv
 │
 ├── database/
 │   └── customeriq.db
 ├── modelling/
-│   ├──
-│   ├──
+│   ├── 01_churn_eda.py
+│   ├── 02_train_churn_models.py
+│   ├── 03_score_customers.py
+│   └── 04_retention_analysis.py
 ├── models/
-│   ├──
+│   ├── customeriq_churn_model.joblib
+│   └── customeriq_churn_model_metadata.joblib
 ├── sql/
-│    └── SQL analysis scripts
+│    └── SQL analysis scripts (1 - 10)
 ├── .env.example
 ├── .gitignore
 ├── CustomerIQ Project.pbix
