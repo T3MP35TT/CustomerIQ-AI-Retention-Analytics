@@ -470,6 +470,7 @@ The deployed application connects to the CustomerIQ database and Ollama Cloud, a
 
 The Power BI dashboard is structured around customer retention, financial exposure, and predictive risk.
 
+![CustomerIQ Dashboard](./CustomerIQ%20%Dashboard%20%Snapshot.png)
 ### Page 1 — Executive Overview
 
 Provides a high-level view of:
